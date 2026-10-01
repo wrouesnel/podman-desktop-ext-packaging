@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Podman Desktop
+Comment=Manage Podman and other container engines from a single UI
+Exec=/opt/podman-desktop/podman-desktop %U
+Terminal=false
+Type=Application
+Icon=io.podman_desktop.PodmanDesktop
+StartupWMClass=podman-desktop
+Categories=Development;
+Keywords=container;pod;image;volume;kubernetes;docker;kind;kubectl;
+MimeType=x-scheme-handler/podman-desktop;
