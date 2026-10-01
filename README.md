@@ -50,6 +50,19 @@ make test                                 # install and start test of each packa
 Pre-release versions (`1.31.0-next`) are packaged as `1.31.0~next` with the build date and commit in the release,
 so that they sort before the final version.
 
+## Versions
+
+The packaged builds of [wrouesnel/podman-desktop](https://github.com/wrouesnel/podman-desktop) are versioned one
+minor version above upstream main, with a `+wrouesnel.N` build metadata suffix (e.g. `1.32.0+wrouesnel.1` for
+upstream `1.31.0-next`): build metadata keeps the version valid for semver ranges, and rpm and dpkg sort it after the
+corresponding upstream versions. A release is made by:
+
+1. tagging the Podman Desktop sources with `v<version>` (in the fork),
+2. setting `PD_REF` to this tag in `upstream.env`,
+3. tagging this repository with the same `v<version>`: the workflow builds, tests and publishes the packages.
+
+Changes of the packaging only (same sources) increase `PKG_RELEASE` instead.
+
 ## Package repositories
 
 `make repos REPO_BASE_URL=<url>` builds in `public/`:
