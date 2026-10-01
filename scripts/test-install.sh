@@ -32,6 +32,8 @@ echo "== files"
 test -L /usr/bin/podman-desktop
 test -u /opt/podman-desktop/chrome-sandbox
 desktop-file-validate /usr/share/applications/io.podman_desktop.PodmanDesktop.desktop
+test -f /usr/share/podman-desktop/default-settings.json
+test -f /usr/share/podman-desktop/locked.json
 
 echo "== shared libraries"
 missing=0
@@ -61,4 +63,9 @@ if [ "$status" -ne 124 ]; then
   tail -30 "$log" >&2
   exit 1
 fi
+
+echo "== telemetry"
+# the managed configuration disabling (and locking) the telemetry must be loaded by the application
+grep -F '[Managed-by]: Loaded managed defaults from: /usr/share/podman-desktop/default-settings.json' "$log"
+grep -F '[Managed-by]: Loaded managed locked from: /usr/share/podman-desktop/locked.json' "$log"
 echo "OK: $(basename "$pkg")"

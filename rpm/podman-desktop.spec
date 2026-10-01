@@ -57,6 +57,10 @@ install -Dm 0644 BUILD_INFO %{buildroot}%{_docdir}/%{name}/BUILD_INFO
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
 %{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
 %{_datadir}/icons/hicolor/512x512/apps/%{app_id}.png
+# managed configuration: telemetry disabled and locked (administrators can add their own settings)
+%dir %{_datadir}/podman-desktop
+%config(noreplace) %{_datadir}/podman-desktop/default-settings.json
+%config(noreplace) %{_datadir}/podman-desktop/locked.json
 
 %changelog
 * %(LC_ALL=C date -u +"%a %b %d %Y") %{pkg_maintainer} - %{pkg_version}-%{pkg_release}

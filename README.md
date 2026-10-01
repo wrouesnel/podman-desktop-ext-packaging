@@ -58,7 +58,12 @@ so that they sort before the final version.
 - `deb/`: an apt repository with the `noble` suite
 - `podman-desktop.asc`: the public signing key
 
-The packages and repository metadata are signed when `GPG_KEY_ID` is set (the key must be in your gpg keyring).
+The packages and repository metadata are signed when `GPG_KEY_ID` is set (the key must be in the keyring of
+`GNUPGHOME`, default `~/.gnupg`).
+
+The published packages are signed with the key
+`058A F445 927A 0D7F F792  B855 40FC 2F5A A994 033A` (RSA 4096, expires 2029-09-30),
+available in [`keys/podman-desktop-packaging.asc`](keys/podman-desktop-packaging.asc) and on the published repository.
 
 The [build workflow](.github/workflows/build.yml) builds and tests the packages on every push, and for `v*` tags
 publishes the repositories on GitHub Pages (the latest packages only) and attaches the packages to the release.
@@ -86,10 +91,18 @@ echo "deb [signed-by=/usr/share/keyrings/podman-desktop.gpg] <url>/deb noble mai
 sudo apt update && sudo apt install podman-desktop
 ```
 
+## Telemetry
+
+The packages disable the telemetry of Podman Desktop, with its
+[managed configuration](https://podman-desktop.io/docs/configuration/managed-configuration):
+`/usr/share/podman-desktop/default-settings.json` sets `telemetry.enabled` to `false` (and `telemetry.check`, so
+the welcome screen does not ask), and `/usr/share/podman-desktop/locked.json` locks both settings: the user settings
+cannot enable the telemetry. These files are configuration files of the packages, administrators can add other
+managed settings to them. The install tests check that the application loads them.
+
 ## Notes
 
 - Upstream Podman Desktop only publishes Flathub / flatpak and tar.gz builds for Linux (Fedora packaging is
   discussed in [podman-desktop#14676](https://github.com/podman-desktop/podman-desktop/issues/14676)).
-- Builds from the upstream sources embed the upstream telemetry configuration (`product.json`), and use the
-  Podman Desktop name and icons: decide whether it is appropriate for builds of modified sources before publishing.
+- The packages use the Podman Desktop name and icons.
 - x86_64 only for now (arm64 would need an arm64 build of the application).

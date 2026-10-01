@@ -22,7 +22,8 @@ cp "$ROOT/deb/apparmor-podman-desktop" "$tree/etc/apparmor.d/podman-desktop"
 # setuid sandbox helper, used when unprivileged user namespaces are not available
 chmod 4755 "$tree/opt/podman-desktop/chrome-sandbox"
 install -m 0755 "$ROOT/deb/postinst" "$ROOT/deb/postrm" "$tree/DEBIAN/"
-echo /etc/apparmor.d/podman-desktop > "$tree/DEBIAN/conffiles"
+printf '%s\n' /etc/apparmor.d/podman-desktop \
+  /usr/share/podman-desktop/default-settings.json /usr/share/podman-desktop/locked.json > "$tree/DEBIAN/conffiles"
 
 # dependencies of the Electron binaries (the libraries bundled with Electron are resolved from the application)
 mkdir -p "$work/debian"

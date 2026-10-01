@@ -40,6 +40,10 @@ mkdir -p "$STAGE/share/applications" "$STAGE/share/metainfo" \
   "$STAGE/share/icons/hicolor/scalable/apps" "$STAGE/share/icons/hicolor/512x512/apps"
 cp -a dist/linux-unpacked "$STAGE/podman-desktop"
 cp "$ROOT/common/io.podman_desktop.PodmanDesktop.desktop" "$STAGE/share/applications/"
+# managed configuration (https://podman-desktop.io/docs/configuration/managed-configuration):
+# telemetry disabled and locked
+mkdir -p "$STAGE/share/podman-desktop"
+cp "$ROOT/common/managed/default-settings.json" "$ROOT/common/managed/locked.json" "$STAGE/share/podman-desktop/"
 cp .flatpak-appdata.xml "$STAGE/share/metainfo/io.podman_desktop.PodmanDesktop.metainfo.xml"
 cp buildResources/icon.svg "$STAGE/share/icons/hicolor/scalable/apps/io.podman_desktop.PodmanDesktop.svg"
 cp buildResources/icon-512x512.png "$STAGE/share/icons/hicolor/512x512/apps/io.podman_desktop.PodmanDesktop.png"

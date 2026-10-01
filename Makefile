@@ -13,6 +13,7 @@
 #   PKG_MAINTAINER packager identity "Name <email>" (default: git config user.name / user.email)
 #   PKG_RELEASE    package release number (default 1)
 #   REPO_BASE_URL  public URL of the published repositories (for the generated .repo file)
+#   GPG_KEY_ID     sign the packages and repositories with this key, from the keyring GNUPGHOME (default ~/.gnupg)
 
 include upstream.env
 export PD_REPO PD_REF NODE_VERSION
@@ -36,7 +37,10 @@ else
 APP_SRC := -e PD_REPO
 endif
 
-ARTIFACT = $(lastword $(sort $(wildcard out/podman-desktop-app-*-x86_64.tar.gz)))
+# the latest file matching a pattern, resolved by the shell when the recipe runs
+# (make's $(wildcard) caches the directory contents, and does not see the files created by the previous targets)
+latest = "$$(ls -1 $(1) 2>/dev/null | sort | tail -1)"
+ARTIFACT = $(call latest,out/podman-desktop-app-*-x86_64.tar.gz)
 
 .PHONY: all images app rpm-el8 rpm-el10 deb-noble packages test test-el8 test-el10 test-noble repos clean
 
@@ -64,16 +68,17 @@ deb-noble:
 test: test-el8 test-el10 test-noble
 
 test-el8:
-	$(RUN) docker.io/library/rockylinux:8 scripts/test-install.sh $(lastword $(sort $(wildcard out/x86_64/podman-desktop-*.el8*.x86_64.rpm)))
+	$(RUN) docker.io/library/rockylinux:8 scripts/test-install.sh $(call latest,out/x86_64/podman-desktop-*.el8*.x86_64.rpm)
 
 test-el10:
-	$(RUN) docker.io/library/almalinux:10 scripts/test-install.sh $(lastword $(sort $(wildcard out/x86_64/podman-desktop-*.el10*.x86_64.rpm)))
+	$(RUN) docker.io/library/almalinux:10 scripts/test-install.sh $(call latest,out/x86_64/podman-desktop-*.el10*.x86_64.rpm)
 
 test-noble:
-	$(RUN) docker.io/library/ubuntu:24.04 scripts/test-install.sh $(lastword $(sort $(wildcard out/podman-desktop_*~ubuntu24.04_amd64.deb)))
+	$(RUN) docker.io/library/ubuntu:24.04 scripts/test-install.sh $(call latest,out/podman-desktop_*~ubuntu24.04_amd64.deb)
 
-# the gpg keyring is mounted only when signing
-GPG_MOUNT := $(if $(GPG_KEY_ID),-v $(HOME)/.gnupg:/root/.gnupg)
+# the gpg keyring (GNUPGHOME, default ~/.gnupg) is mounted only when signing
+GNUPGHOME ?= $(HOME)/.gnupg
+GPG_MOUNT := $(if $(GPG_KEY_ID),-v $(GNUPGHOME):/root/.gnupg)
 
 repos:
 	$(RUN) $(GPG_MOUNT) docker.io/library/rockylinux:8 sh -c \
