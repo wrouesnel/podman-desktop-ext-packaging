@@ -43,7 +43,8 @@ jobs:
     # for tags: build the signed dnf / apt repositories (deployed on GitHub Pages by pages.yml), and create the
     # release (notes only). The Pages deployment runs in another workflow: GitHub deployments do not progress
     # for refs containing '+' (the +wrouesnel version suffix), a workflow_run deployment runs on the default branch
-    if: startsWith(github.ref, 'refs/tags/v')
+    # a manual run (workflow_dispatch) builds and signs the repositories without creating a release or deploying
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -57,19 +58,24 @@ jobs:
           name: packages
           path: out
 
+      # the key is passphrase protected: the passphrase goes to gpg through a pipe (loopback pinentry), never in a file
       - name: Import the signing key
         env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
+          PACKAGE_SIGNING_KEY_PASSPHRASE: ${{ secrets.PACKAGE_SIGNING_KEY_PASSPHRASE }}
         run: |
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          echo "GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')" >> "$GITHUB_ENV"
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 --import \
+            <<<"$PACKAGE_SIGNING_KEY" 3< <(printf '%s' "$PACKAGE_SIGNING_KEY_PASSPHRASE")
+          gpg --list-secret-keys "${{ vars.PACKAGE_SIGNING_KEY_FINGERPRINT }}" >/dev/null
 
       - name: Build the repositories
         env:
           GH_TOKEN: ${{ github.token }}
+          PACKAGE_SIGNING_KEY_FINGERPRINT: ${{ vars.PACKAGE_SIGNING_KEY_FINGERPRINT }}
+          PACKAGE_SIGNING_KEY_PASSPHRASE: ${{ secrets.PACKAGE_SIGNING_KEY_PASSPHRASE }}
         run: |
           base_url=$(gh api "repos/${{ github.repository }}/pages" --jq .html_url)
-          make repos REPO_BASE_URL="${base_url%/}"
+          make repos REPO_BASE_URL="${base_url%/}" PACKAGE_SIGNING_KEY_FINGERPRINT="$PACKAGE_SIGNING_KEY_FINGERPRINT"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -78,7 +84,8 @@ jobs:
 
       # the release only carries notes: the packages are published in the dnf / apt repositories, never as
       # release assets
-      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           body: |
             Packages of Podman Desktop ${{ github.ref_name }} for RHEL 8, RHEL 10 and Ubuntu 24.04.

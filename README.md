@@ -75,8 +75,16 @@ Changes of the packaging only (same sources) increase `PKG_RELEASE` instead.
 - `deb/`: an apt repository with the `noble` suite
 - `podman-desktop.asc`: the public signing key
 
-The packages and repository metadata are signed when `GPG_KEY_ID` is set (the key must be in the keyring of
-`GNUPGHOME`, default `~/.gnupg`).
+The packages and repository metadata are signed when `PACKAGE_SIGNING_KEY_FINGERPRINT` is set (the key must be in
+the keyring of `GNUPGHOME`, default `~/.gnupg`). The key is passphrase protected: the passphrase is taken from
+`PACKAGE_SIGNING_KEY_PASSPHRASE` when it is set (CI), otherwise from the login keyring with
+`secret-tool lookup service gpg-passphrase fingerprint <fingerprint>`. [`repo/gpg-sign`](repo/gpg-sign) gives it to
+gpg through a pipe (loopback pinentry), for the RPM signatures, the dnf `repomd.xml` and the apt `Release` files; it
+is never written to a file. For example:
+
+```sh
+make repos PACKAGE_SIGNING_KEY_FINGERPRINT=058AF445927A0D7FF792B85540FC2F5AA994033A REPO_BASE_URL=<url>
+```
 
 The published packages are signed with the key
 `058A F445 927A 0D7F F792  B855 40FC 2F5A A994 033A` (RSA 4096, expires 2029-09-30),
@@ -85,13 +93,14 @@ available in [`keys/podman-desktop-packaging.asc`](keys/podman-desktop-packaging
 The [build workflow](.github/workflows/build.yml) builds and tests all the packages (RPM el8 and el10, and deb) on
 pull requests and on every push, so a broken package build fails the CI. For `v*` tags, it also builds the signed
 repositories and creates the release (release notes only: the packages are published in the repositories, not as
-release assets), and the
+release assets); a manual run of the workflow builds and signs the repositories without releasing them. The
 [publish workflow](.github/workflows/pages.yml) deploys the repositories on GitHub Pages (the latest packages only).
 The deployment is a separate workflow, running on the default branch: GitHub deployments do not progress for refs
 containing `+`, like the `+wrouesnel` version tags. It needs:
 
 - the repository variable `PKG_MAINTAINER`
-- the secret `GPG_PRIVATE_KEY` (armored private signing key, without passphrase)
+- the secrets `PACKAGE_SIGNING_KEY` (armored private signing key, passphrase protected) and
+  `PACKAGE_SIGNING_KEY_PASSPHRASE`, and the variable `PACKAGE_SIGNING_KEY_FINGERPRINT`
 - GitHub Pages enabled with "GitHub Actions" as source (the `github-pages` environment allows the `main` branch)
 
 ### Installing from the repositories

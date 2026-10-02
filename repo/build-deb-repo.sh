@@ -2,7 +2,8 @@
 # Adds the Debian packages of out/ for a suite to the apt repository in public/deb, with a flat
 # "dists/<suite>/main" layout. Runs in an Ubuntu container (apt-utils, gnupg).
 # Usage: build-deb-repo.sh <suite, e.g. noble>
-# When GPG_KEY_ID is set, the Release file is signed with this key (InRelease and Release.gpg).
+# When PACKAGE_SIGNING_KEY_FINGERPRINT is set, the Release file is signed with this key (InRelease and Release.gpg;
+# its passphrase is read from PACKAGE_SIGNING_KEY_PASSPHRASE).
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 suite=${1:?suite}
@@ -22,9 +23,9 @@ apt-ftparchive \
   -o APT::FTPArchive::Release::Architectures="amd64" \
   -o APT::FTPArchive::Release::Components="main" \
   release "dists/$suite" > "dists/$suite/Release"
-if [ -n "${GPG_KEY_ID:-}" ]; then
-  gpg --batch --yes --local-user "$GPG_KEY_ID" --clearsign -o "dists/$suite/InRelease" "dists/$suite/Release"
-  gpg --batch --yes --local-user "$GPG_KEY_ID" --detach-sign --armor -o "dists/$suite/Release.gpg" "dists/$suite/Release"
-  gpg --armor --export "$GPG_KEY_ID" > "$ROOT/public/podman-desktop.asc"
+if [ -n "${PACKAGE_SIGNING_KEY_FINGERPRINT:-}" ]; then
+  "$ROOT/repo/gpg-sign" --yes --local-user "$PACKAGE_SIGNING_KEY_FINGERPRINT" --clearsign -o "dists/$suite/InRelease" "dists/$suite/Release"
+  "$ROOT/repo/gpg-sign" --yes --local-user "$PACKAGE_SIGNING_KEY_FINGERPRINT" --detach-sign --armor -o "dists/$suite/Release.gpg" "dists/$suite/Release"
+  gpg --armor --export "$PACKAGE_SIGNING_KEY_FINGERPRINT" > "$ROOT/public/podman-desktop.asc"
 fi
 echo "repository: $repo ($suite)"

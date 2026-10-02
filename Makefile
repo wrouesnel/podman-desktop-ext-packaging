@@ -5,7 +5,7 @@
 #   make rpm-el10       build the EL10 RPM
 #   make deb-noble      build the Ubuntu 24.04 package
 #   make test           install and start each package in a clean container of its distribution
-#   make repos          build the dnf / apt repositories in public/ (signed when GPG_KEY_ID is set)
+#   make repos          build the dnf / apt repositories in public/ (signed when PACKAGE_SIGNING_KEY_FINGERPRINT is set)
 #   make all            everything above
 #
 # Variables: see upstream.env (PD_REPO, PD_REF, NODE_VERSION), and
@@ -13,7 +13,10 @@
 #   PKG_MAINTAINER packager identity "Name <email>" (default: git config user.name / user.email)
 #   PKG_RELEASE    package release number (default 1)
 #   REPO_BASE_URL  public URL of the published repositories (for the generated .repo file)
-#   GPG_KEY_ID     sign the packages and repositories with this key, from the keyring GNUPGHOME (default ~/.gnupg)
+#   PACKAGE_SIGNING_KEY_FINGERPRINT
+#                  sign the packages and repositories with this key, from the keyring GNUPGHOME (default ~/.gnupg);
+#                  its passphrase is PACKAGE_SIGNING_KEY_PASSPHRASE from the environment (CI) or, when that is not
+#                  set, the login keyring: secret-tool lookup service gpg-passphrase fingerprint <fingerprint>
 
 include upstream.env
 export PD_REPO PD_REF NODE_VERSION
@@ -30,7 +33,7 @@ NOBLE_IMAGE := $(IMAGE_PREFIX)/deb-noble
 
 # SELinux labels are disabled rather than relabelling the mounted host directories (:Z)
 RUN := $(PODMAN) run --rm --security-opt label=disable -v $(CURDIR):/pkg -w /pkg \
-	-e PKG_MAINTAINER="$(PKG_MAINTAINER)" -e PKG_RELEASE=$(PKG_RELEASE) -e GPG_KEY_ID
+	-e PKG_MAINTAINER="$(PKG_MAINTAINER)" -e PKG_RELEASE=$(PKG_RELEASE)
 ifdef PD_LOCAL_SRC
 APP_SRC := -v $(abspath $(PD_LOCAL_SRC)):/src:ro -e PD_REPO=/src
 else
@@ -76,16 +79,20 @@ test-el10:
 test-noble:
 	$(RUN) docker.io/library/ubuntu:24.04 scripts/test-install.sh $(call latest,out/podman-desktop_*~ubuntu24.04_amd64.deb)
 
-# the gpg keyring (GNUPGHOME, default ~/.gnupg) is mounted only when signing
+# signing: the gpg keyring (GNUPGHOME, default ~/.gnupg) is mounted, and the passphrase of the key is passed in the
+# environment (looked up in the login keyring when PACKAGE_SIGNING_KEY_PASSPHRASE is not set), never in a file
 GNUPGHOME ?= $(HOME)/.gnupg
-GPG_MOUNT := $(if $(GPG_KEY_ID),-v $(GNUPGHOME):/root/.gnupg)
+SIGNING := $(if $(PACKAGE_SIGNING_KEY_FINGERPRINT),-v $(GNUPGHOME):/root/.gnupg \
+	-e PACKAGE_SIGNING_KEY_FINGERPRINT=$(PACKAGE_SIGNING_KEY_FINGERPRINT) -e PACKAGE_SIGNING_KEY_PASSPHRASE)
+PASSPHRASE_LOOKUP := $(if $(PACKAGE_SIGNING_KEY_FINGERPRINT),export PACKAGE_SIGNING_KEY_PASSPHRASE="$${PACKAGE_SIGNING_KEY_PASSPHRASE-$$(secret-tool lookup service gpg-passphrase fingerprint $(PACKAGE_SIGNING_KEY_FINGERPRINT))}";)
 
 repos:
-	$(RUN) $(GPG_MOUNT) docker.io/library/rockylinux:8 sh -c \
-		'dnf -y -q install createrepo_c rpm-sign gnupg2 findutils >/dev/null && repo/build-rpm-repo.sh el8 $(REPO_BASE_URL)'
-	$(RUN) $(GPG_MOUNT) docker.io/library/almalinux:10 sh -c \
-		'dnf -y -q install createrepo_c rpm-sign gnupg2 findutils >/dev/null && repo/build-rpm-repo.sh el10 $(REPO_BASE_URL)'
-	$(RUN) $(GPG_MOUNT) docker.io/library/ubuntu:24.04 sh -c \
+	$(PASSPHRASE_LOOKUP) \
+	$(RUN) $(SIGNING) docker.io/library/rockylinux:8 sh -c \
+		'dnf -y -q install createrepo_c rpm-sign gnupg2 findutils >/dev/null && repo/build-rpm-repo.sh el8 $(REPO_BASE_URL)' && \
+	$(RUN) $(SIGNING) docker.io/library/almalinux:10 sh -c \
+		'dnf -y -q install createrepo_c rpm-sign gnupg2 findutils >/dev/null && repo/build-rpm-repo.sh el10 $(REPO_BASE_URL)' && \
+	$(RUN) $(SIGNING) docker.io/library/ubuntu:24.04 sh -c \
 		'apt-get update -qq && apt-get install -y -qq apt-utils gnupg >/dev/null && repo/build-deb-repo.sh noble'
 
 clean:
