@@ -40,8 +40,8 @@ jobs:
             out/*.deb
 
   release:
-    # for tags: build the signed dnf / apt repositories (deployed on GitHub Pages by pages.yml), and attach the
-    # packages to the release. The Pages deployment runs in another workflow: GitHub deployments do not progress
+    # for tags: build the signed dnf / apt repositories (deployed on GitHub Pages by pages.yml), and create the
+    # release (notes only). The Pages deployment runs in another workflow: GitHub deployments do not progress
     # for refs containing '+' (the +wrouesnel version suffix), a workflow_run deployment runs on the default branch
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
@@ -76,8 +76,12 @@ jobs:
           name: site
           path: public
 
+      # the release only carries notes: the packages are published in the dnf / apt repositories, never as
+      # release assets
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          files: |
-            out/x86_64/*.rpm
-            out/*.deb
+          body: |
+            Packages of Podman Desktop ${{ github.ref_name }} for RHEL 8, RHEL 10 and Ubuntu 24.04.
+
+            Install them from the dnf / apt repositories: see
+            [Installing from the repositories](https://github.com/${{ github.repository }}#installing-from-the-repositories).

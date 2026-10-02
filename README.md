@@ -8,6 +8,10 @@ RPM and Debian packages of [Podman Desktop](https://github.com/podman-desktop/po
 | RHEL 10 and compatible | `podman-desktop-<version>.el10.x86_64.rpm` | AlmaLinux 10 |
 | Ubuntu 24.04 (noble) | `podman-desktop_<version>~ubuntu24.04_amd64.deb` | Ubuntu 24.04 |
 
+The packages are published in signed dnf and apt repositories at
+<https://blog.wrouesnel.com/podman-desktop-packaging/>: see
+[Installing from the repositories](#installing-from-the-repositories).
+
 The sources to package are configured in [`upstream.env`](upstream.env) (repository and git ref).
 
 ## How it works
@@ -78,8 +82,10 @@ The published packages are signed with the key
 `058A F445 927A 0D7F F792  B855 40FC 2F5A A994 033A` (RSA 4096, expires 2029-09-30),
 available in [`keys/podman-desktop-packaging.asc`](keys/podman-desktop-packaging.asc) and on the published repository.
 
-The [build workflow](.github/workflows/build.yml) builds and tests the packages on every push. For `v*` tags, it
-also builds the signed repositories and attaches the packages to the release, and the
+The [build workflow](.github/workflows/build.yml) builds and tests all the packages (RPM el8 and el10, and deb) on
+pull requests and on every push, so a broken package build fails the CI. For `v*` tags, it also builds the signed
+repositories and creates the release (release notes only: the packages are published in the repositories, not as
+release assets), and the
 [publish workflow](.github/workflows/pages.yml) deploys the repositories on GitHub Pages (the latest packages only).
 The deployment is a separate workflow, running on the default branch: GitHub deployments do not progress for refs
 containing `+`, like the `+wrouesnel` version tags. It needs:
@@ -90,18 +96,33 @@ containing `+`, like the `+wrouesnel` version tags. It needs:
 
 ### Installing from the repositories
 
-RHEL 8 / 10 (replace `el8` by `el10` for RHEL 10):
+The repositories are published on GitHub Pages at <https://blog.wrouesnel.com/podman-desktop-packaging/>
+(signing key: <https://blog.wrouesnel.com/podman-desktop-packaging/podman-desktop.asc>).
+
+RHEL 8 and compatible (dnf repository
+<https://blog.wrouesnel.com/podman-desktop-packaging/rpm/el8/x86_64/>):
 
 ```sh
-sudo curl -o /etc/yum.repos.d/podman-desktop.repo <url>/rpm/podman-desktop-el8.repo
+sudo curl -fsSL -o /etc/yum.repos.d/podman-desktop.repo \
+  https://blog.wrouesnel.com/podman-desktop-packaging/rpm/podman-desktop-el8.repo
 sudo dnf install podman-desktop
 ```
 
-Ubuntu 24.04:
+RHEL 10 and compatible (dnf repository
+<https://blog.wrouesnel.com/podman-desktop-packaging/rpm/el10/x86_64/>):
 
 ```sh
-curl -fsSL <url>/podman-desktop.asc | sudo gpg --dearmor -o /usr/share/keyrings/podman-desktop.gpg
-echo "deb [signed-by=/usr/share/keyrings/podman-desktop.gpg] <url>/deb noble main" \
+sudo curl -fsSL -o /etc/yum.repos.d/podman-desktop.repo \
+  https://blog.wrouesnel.com/podman-desktop-packaging/rpm/podman-desktop-el10.repo
+sudo dnf install podman-desktop
+```
+
+Ubuntu 24.04 (apt repository <https://blog.wrouesnel.com/podman-desktop-packaging/deb/>, suite `noble`):
+
+```sh
+curl -fsSL https://blog.wrouesnel.com/podman-desktop-packaging/podman-desktop.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/podman-desktop.gpg
+echo "deb [signed-by=/usr/share/keyrings/podman-desktop.gpg] https://blog.wrouesnel.com/podman-desktop-packaging/deb noble main" \
   | sudo tee /etc/apt/sources.list.d/podman-desktop.list
 sudo apt update && sudo apt install podman-desktop
 ```
