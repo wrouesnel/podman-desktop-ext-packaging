@@ -78,13 +78,15 @@ The published packages are signed with the key
 `058A F445 927A 0D7F F792  B855 40FC 2F5A A994 033A` (RSA 4096, expires 2029-09-30),
 available in [`keys/podman-desktop-packaging.asc`](keys/podman-desktop-packaging.asc) and on the published repository.
 
-The [build workflow](.github/workflows/build.yml) builds and tests the packages on every push, and for `v*` tags
-publishes the repositories on GitHub Pages (the latest packages only) and attaches the packages to the release.
-It needs:
+The [build workflow](.github/workflows/build.yml) builds and tests the packages on every push. For `v*` tags, it
+also builds the signed repositories and attaches the packages to the release, and the
+[publish workflow](.github/workflows/pages.yml) deploys the repositories on GitHub Pages (the latest packages only).
+The deployment is a separate workflow, running on the default branch: GitHub deployments do not progress for refs
+containing `+`, like the `+wrouesnel` version tags. It needs:
 
 - the repository variable `PKG_MAINTAINER`
 - the secret `GPG_PRIVATE_KEY` (armored private signing key, without passphrase)
-- GitHub Pages enabled with "GitHub Actions" as source
+- GitHub Pages enabled with "GitHub Actions" as source (the `github-pages` environment allows the `main` branch)
 
 ### Installing from the repositories
 
