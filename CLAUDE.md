@@ -5,7 +5,7 @@ apt repositories on GitHub Pages (<https://blog.wrouesnel.com/podman-desktop-pac
 
 ## Remotes
 
-`origin` is the local backup `~/git/podman-desktop-packaging.git` (push after every commit), `github` is
+`origin` is the local backup `~/git/will/podman-desktop-packaging.git` (push after every commit), `github` is
 github.com/wrouesnel/podman-desktop-packaging (push when releasing or asked).
 
 ## Signing key
