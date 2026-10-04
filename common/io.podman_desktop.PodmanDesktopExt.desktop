@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Podman Desktop Ext
+Comment=Manage Podman and other container engines from a single UI (extended build)
+Exec=/opt/podman-desktop-ext/podman-desktop-ext %U
+Terminal=false
+Type=Application
+Icon=io.podman_desktop.PodmanDesktopExt
+StartupWMClass=podman-desktop-ext
+Categories=Development;
+Keywords=container;pod;image;volume;kubernetes;docker;kind;kubectl;
+MimeType=x-scheme-handler/podman-desktop-ext;

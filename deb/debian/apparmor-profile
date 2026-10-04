@@ -1,0 +1,10 @@
+# Ubuntu restricts the unprivileged user namespaces with AppArmor: Electron applications need a profile
+# allowing them for their sandbox (see https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces)
+abi <abi/4.0>,
+include <tunables/global>
+
+profile podman-desktop-ext /opt/podman-desktop-ext/podman-desktop-ext flags=(unconfined) {
+  userns,
+
+  include if exists <local/podman-desktop-ext>
+}

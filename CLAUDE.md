@@ -1,24 +1,30 @@
-# podman-desktop-packaging
+# podman-desktop-ext-packaging
 
-RPM (EL8, EL10) and deb (Ubuntu 24.04) packages of the wrouesnel/podman-desktop fork, published as signed dnf and
-apt repositories on GitHub Pages (<https://blog.wrouesnel.com/podman-desktop-packaging/>). See README.md.
+Packages of the wrouesnel/podman-desktop-ext fork (Podman Desktop Ext, installable side by side with Podman
+Desktop): Debian source packages for the Launchpad PPA `ppa:w-rouesnel/podman-desktop-ext` (noble, resolute) and a
+source RPM for the COPR project `wrouesnel/podman-desktop-ext` (epel-8, epel-10, fedora-43/44/45), all x86_64.
+Both repackage the application archive built by this repository's CI, since the build services build offline.
+See README.md.
 
 ## Remotes
 
-`origin` is the local backup `~/git/will/podman-desktop-packaging.git` (push after every commit), `github` is
-github.com/wrouesnel/podman-desktop-packaging (push when releasing or asked).
+`origin` is the local backup `~/git/will/podman-desktop-ext-packaging.git` (push after every commit), `github` is
+github.com/wrouesnel/podman-desktop-ext-packaging (push when releasing or asked). The repository was named
+podman-desktop-packaging until 2026-10-04.
 
-## Signing key
+## Signing
 
-- The repositories are signed with this project's own key, `058AF445927A0D7FF792B85540FC2F5AA994033A`
-  (RSA 4096, expires 2029-09-30), kept in the personal keyring `~/.gnupg`, certified by the user's default key and
-  published on keyserver.ubuntu.com. Its passphrase: `secret-tool lookup service gpg-passphrase fingerprint
-  058AF445927A0D7FF792B85540FC2F5AA994033A`. Never print it.
-- CI uses the standard names of the global key rules: the secrets `PACKAGE_SIGNING_KEY` (passphrase protected) and
-  `PACKAGE_SIGNING_KEY_PASSPHRASE`, and the variable `PACKAGE_SIGNING_KEY_FINGERPRINT`.
-- Local signing: `make repos PACKAGE_SIGNING_KEY_FINGERPRINT=<fpr>`; `repo/gpg-sign` passes the passphrase to gpg
-  through a pipe (loopback pinentry), never through a file.
+- PPA uploads are signed in CI with the shared Launchpad key `2A128435A6FE8BD751AA578720959AB807096ADB`
+  ("Will Rouesnel (GPG key for launchpad signing)", Launchpad account `~w-rouesnel`), exported (approved without
+  asking by the global key rules) to the secrets `PACKAGE_SIGNING_KEY` and `PACKAGE_SIGNING_KEY_PASSPHRASE`, with the
+  variable `PACKAGE_SIGNING_KEY_FINGERPRINT`. Its passphrase: `secret-tool lookup service gpg-passphrase fingerprint
+  2A128435A6FE8BD751AA578720959AB807096ADB`. Never print it.
+- COPR signs the RPMs with its own key. CI submits builds with the secret `COPR_CONFIG` (the COPR API
+  configuration, expires after 180 days).
+- Retired: the dnf / apt repositories on GitHub Pages and their key `058AF445927A0D7FF792B85540FC2F5AA994033A`
+  (still in the personal keyring; ask the user before revoking or deleting it).
 
 ## Releases
 
-GitHub Releases carry notes only: the packages are published only through the dnf / apt repositories.
+GitHub Releases carry the compiled application archive and its checksum only: the packages are published only
+through the PPA and COPR.

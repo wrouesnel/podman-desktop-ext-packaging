@@ -1,0 +1,32 @@
+#!/usr/bin/make -f
+# Repackages the prebuilt Podman Desktop Ext application (the orig tarball is the application archive built from
+# the sources on GitHub, see scripts/build-app.sh): Launchpad builds offline, without npm or Node.js.
+
+PKG := debian/podman-desktop-ext
+APP := opt/podman-desktop-ext
+
+%:
+	dh $@
+
+override_dh_auto_configure override_dh_auto_build override_dh_auto_test:
+
+override_dh_auto_install:
+	install -d $(PKG)/opt $(PKG)/usr/bin $(PKG)/usr/share/doc/podman-desktop-ext
+	cp -a app $(PKG)/$(APP)
+	cp -a share/. $(PKG)/usr/share/
+	ln -s /$(APP)/podman-desktop-ext $(PKG)/usr/bin/podman-desktop-ext
+	install -m 0644 BUILD_INFO $(PKG)/usr/share/doc/podman-desktop-ext/
+	install -D -m 0644 debian/apparmor-profile $(PKG)/etc/apparmor.d/podman-desktop-ext
+
+# prebuilt Electron application: kept as built
+override_dh_strip override_dh_dwz override_dh_strip_nondeterminism override_dh_makeshlibs:
+
+# dependencies of the Electron binaries (the libraries bundled with Electron resolve from the application);
+# the extensions and node modules resources embed binaries for other platforms
+override_dh_shlibdeps:
+	dh_shlibdeps -Xresources -l$(CURDIR)/$(PKG)/$(APP) -- --ignore-missing-info
+
+# setuid sandbox helper, used when unprivileged user namespaces are not available
+override_dh_fixperms:
+	dh_fixperms
+	chmod 4755 $(PKG)/$(APP)/chrome-sandbox

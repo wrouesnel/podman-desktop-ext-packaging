@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
 if [ "$1" = "configure" ] && [ -x /usr/sbin/apparmor_parser ] && aa-enabled --quiet 2>/dev/null; then
-  apparmor_parser -r -T -W /etc/apparmor.d/podman-desktop || true
+  apparmor_parser -r -T -W /etc/apparmor.d/podman-desktop-ext || true
 fi
+#DEBHELPER#

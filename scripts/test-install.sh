@@ -29,15 +29,15 @@ case "$pkg" in
 esac
 
 echo "== files"
-test -L /usr/bin/podman-desktop
-test -u /opt/podman-desktop/chrome-sandbox
-desktop-file-validate /usr/share/applications/io.podman_desktop.PodmanDesktop.desktop
-test -f /usr/share/podman-desktop/default-settings.json
-test -f /usr/share/podman-desktop/locked.json
+test -L /usr/bin/podman-desktop-ext
+test -u /opt/podman-desktop-ext/chrome-sandbox
+desktop-file-validate /usr/share/applications/io.podman_desktop.PodmanDesktopExt.desktop
+test -f /usr/share/podman-desktop-ext/default-settings.json
+test -f /usr/share/podman-desktop-ext/locked.json
 
 echo "== shared libraries"
 missing=0
-for file in /opt/podman-desktop/podman-desktop /opt/podman-desktop/chrome_crashpad_handler /opt/podman-desktop/*.so*; do
+for file in /opt/podman-desktop-ext/podman-desktop-ext /opt/podman-desktop-ext/chrome_crashpad_handler /opt/podman-desktop-ext/*.so*; do
   if ldd "$file" 2>/dev/null | grep 'not found'; then
     echo "missing libraries for $file" >&2
     missing=1
@@ -48,9 +48,9 @@ done
 echo "== launch"
 # the setuid sandbox cannot be used in an unprivileged container: the launch check runs without the sandbox
 useradd -m tester 2>/dev/null || true
-log=/tmp/podman-desktop.log
+log=/tmp/podman-desktop-ext.log
 set +e
-su tester -c "cd ~ && export XDG_RUNTIME_DIR=\$(mktemp -d) && timeout 30 $display_runner /usr/bin/podman-desktop --no-sandbox" >"$log" 2>&1
+su tester -c "cd ~ && export XDG_RUNTIME_DIR=\$(mktemp -d) && timeout 30 $display_runner /usr/bin/podman-desktop-ext --no-sandbox" >"$log" 2>&1
 status=$?
 set -e
 if grep -E 'error while loading shared libraries|Segmentation fault|FATAL' "$log"; then
@@ -66,6 +66,19 @@ fi
 
 echo "== telemetry"
 # the managed configuration disabling (and locking) the telemetry must be loaded by the application
-grep -F '[Managed-by]: Loaded managed defaults from: /usr/share/podman-desktop/default-settings.json' "$log"
-grep -F '[Managed-by]: Loaded managed locked from: /usr/share/podman-desktop/locked.json' "$log"
+grep -F '[Managed-by]: Loaded managed defaults from: /usr/share/podman-desktop-ext/default-settings.json' "$log"
+grep -F '[Managed-by]: Loaded managed locked from: /usr/share/podman-desktop-ext/locked.json' "$log"
+echo "== side by side"
+# the application keeps its settings and data apart from upstream Podman Desktop
+home=$(getent passwd tester | cut -d: -f6)
+for dir in "$home/.config/containers/podman-desktop" "$home/.local/share/containers/podman-desktop" \
+  "$home/.config/Podman Desktop"; do
+  if [ -e "$dir" ]; then
+    echo "the application created $dir (upstream Podman Desktop's)" >&2
+    exit 1
+  fi
+done
+ls -d "$home/.config/Podman Desktop Ext" "$home"/.config/containers/podman-desktop-ext \
+  "$home"/.local/share/containers/podman-desktop-ext 2>/dev/null
+[ -d "$home/.config/Podman Desktop Ext" ]
 echo "OK: $(basename "$pkg")"

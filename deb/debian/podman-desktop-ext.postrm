@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+  if [ -x /usr/sbin/apparmor_parser ] && [ ! -e /etc/apparmor.d/podman-desktop-ext ]; then
+    apparmor_parser -R podman-desktop-ext 2>/dev/null || true
+  fi
+fi
+#DEBHELPER#

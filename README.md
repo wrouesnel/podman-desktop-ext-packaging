@@ -1,153 +1,133 @@
-# Podman Desktop packaging
+# Podman Desktop Ext packaging
 
-RPM and Debian packages of [Podman Desktop](https://github.com/podman-desktop/podman-desktop), for:
+Packages of [Podman Desktop Ext](https://github.com/wrouesnel/podman-desktop-ext), an extended build of
+[Podman Desktop](https://github.com/podman-desktop/podman-desktop) (tabbed and split pod terminals, a
+PersistentVolumeClaim file browser, a ConfigMap / Secret value editor, pages for all the Kubernetes resources and
+custom resources). It installs side by side with Podman Desktop: its own name, `podman-desktop-ext` command, desktop
+entry, settings and data (`~/.config/containers/podman-desktop-ext`, `~/.local/share/containers/podman-desktop-ext`).
+Its telemetry is disabled.
 
-| Target | Package | Built on |
+| Target | Repository | Built by |
 | --- | --- | --- |
-| RHEL 8 and compatible (Rocky, Alma) | `podman-desktop-<version>.el8.x86_64.rpm` | Rocky Linux 8 |
-| RHEL 10 and compatible | `podman-desktop-<version>.el10.x86_64.rpm` | AlmaLinux 10 |
-| Ubuntu 24.04 (noble) | `podman-desktop_<version>~ubuntu24.04_amd64.deb` | Ubuntu 24.04 |
+| Ubuntu 24.04 (noble), 26.04 (resolute) | [ppa:w-rouesnel/podman-desktop-ext](https://launchpad.net/~w-rouesnel/+archive/ubuntu/podman-desktop-ext) | Launchpad |
+| RHEL 8 and 10 (Rocky, Alma), Fedora 43, 44, 45 | [wrouesnel/podman-desktop-ext](https://copr.fedorainfracloud.org/coprs/wrouesnel/podman-desktop-ext/) | COPR |
 
-The packages are published in signed dnf and apt repositories at
-<https://blog.wrouesnel.com/podman-desktop-packaging/>: see
-[Installing from the repositories](#installing-from-the-repositories).
+x86_64 only. The sources to package are configured in [`upstream.env`](upstream.env) (repository and git ref).
 
-The sources to package are configured in [`upstream.env`](upstream.env) (repository and git ref).
+## Installing
+
+Ubuntu 24.04 and 26.04, from the PPA
+[ppa:w-rouesnel/podman-desktop-ext](https://launchpad.net/~w-rouesnel/+archive/ubuntu/podman-desktop-ext):
+
+```sh
+sudo add-apt-repository ppa:w-rouesnel/podman-desktop-ext
+sudo apt install podman-desktop-ext
+```
+
+Fedora, and RHEL 8 / 10 and their rebuilds (Rocky Linux, AlmaLinux), from COPR
+[wrouesnel/podman-desktop-ext](https://copr.fedorainfracloud.org/coprs/wrouesnel/podman-desktop-ext/):
+
+```sh
+sudo dnf install dnf-plugins-core     # RHEL 8 / 10: provides "dnf copr"
+sudo dnf copr enable wrouesnel/podman-desktop-ext
+sudo dnf install podman-desktop-ext
+```
+
+Then start "Podman Desktop Ext" from the applications, or run `podman-desktop-ext`.
+
+### Moving from the old repositories
+
+Until 1.32.0+wrouesnel.2 this repository (then `podman-desktop-packaging`) published a `podman-desktop` package in
+its own dnf / apt repositories on GitHub Pages. They are retired and no longer served: remove them, and the old
+package if you like (it is a different package, so both can stay installed):
+
+```sh
+sudo rm /etc/apt/sources.list.d/podman-desktop.list /usr/share/keyrings/podman-desktop.gpg   # Ubuntu
+sudo rm /etc/yum.repos.d/podman-desktop.repo                                                  # RHEL
+```
 
 ## How it works
 
 Podman Desktop is an Electron application built with Node.js and pnpm: building it requires network access to
-thousands of npm packages, which the distribution build systems (Koji, Launchpad) do not allow. The application is
-therefore built once, and the result is repackaged natively for each distribution:
+thousands of npm packages, and Node.js 24, which the build services (Launchpad, COPR) do not provide, as they build
+offline. The application is therefore built once from the sources, by the CI of this repository, and the source
+packages repackage that build:
 
 1. `scripts/build-app.sh` builds the application in a **Rocky Linux 8** container: EL8 has the oldest glibc (2.28)
-   of the targets, so the native modules compiled during the build run on all of them (the Electron binaries
-   themselves require glibc 2.25). The result is `out/podman-desktop-app-<version>-x86_64.tar.gz`: the application,
-   the desktop entry, AppStream metadata and icons, and `BUILD_INFO` (repository, ref, commit).
-2. `scripts/build-rpm.sh` / `scripts/build-deb.sh` package it in a container of each target distribution, so the
-   dependencies are computed from the ELF binaries against the libraries of the distribution
-   (`rpmbuild` automatic requires, `dpkg-shlibdeps`).
-3. `scripts/test-install.sh` installs each package with `dnf` / `apt` in a clean container of its distribution
-   (resolving the dependencies from the distribution repositories), checks the libraries of all the binaries, and
-   starts the application under a virtual display: Xvfb, or Xwayland in a headless weston on EL10, which no longer
-   ships an X server (weston comes from EPEL, for the test only).
+   of the targets, so the native modules compiled during the build run on all of them. The result is the compiled
+   application archive `out/podman-desktop-ext-<version>-linux-x64.tar.gz` (and its `.sha256`), attached to the
+   GitHub releases: `podman-desktop-ext-<version>/` with `app/` (the application), `share/` (desktop entry, AppStream
+   metadata, icons, managed configuration) and `BUILD_INFO` (repository, ref, commit).
+2. `scripts/build-srpm.sh` builds the source RPM (`rpm/podman-desktop-ext.spec.in`, the archive as `Source0`), and
+   `scripts/build-deb-source.sh` the Debian source package of each Ubuntu series (`deb/debian/`, the archive as the
+   orig tarball). The build services build the binary packages from them, computing the dependencies from the ELF
+   binaries against the libraries of each distribution (`rpmbuild` automatic requires, `dpkg-shlibdeps`).
+3. CI rebuilds the binary packages from the source packages in a container of each target, as the build services do
+   (`scripts/rebuild-rpm.sh`, `scripts/rebuild-deb.sh`), and `scripts/test-install.sh` installs each package with
+   `dnf` / `apt` in a clean container (resolving the dependencies from the distribution repositories), checks the
+   libraries of all the binaries, starts the application under a virtual display (Xvfb, or Xwayland in a headless
+   weston on EL10, which no longer ships an X server), and checks that the telemetry is disabled and that the
+   application keeps its settings and data apart from Podman Desktop's.
 
-Package layout: the application in `/opt/podman-desktop`, `/usr/bin/podman-desktop`, the desktop entry
-`io.podman_desktop.PodmanDesktop.desktop` (also handling `podman-desktop://` links), icons and AppStream metadata.
-`chrome-sandbox` is setuid root (Electron sandbox when unprivileged user namespaces are not available), and the
-Debian package installs an AppArmor profile allowing user namespaces, as Ubuntu 24.04 restricts them.
+Package layout: the application in `/opt/podman-desktop-ext`, `/usr/bin/podman-desktop-ext`, the desktop entry
+`io.podman_desktop.PodmanDesktopExt.desktop` (also handling `podman-desktop-ext://` links), icons and AppStream
+metadata. `chrome-sandbox` is setuid root (Electron sandbox when unprivileged user namespaces are not available), and
+the Debian package installs an AppArmor profile allowing user namespaces, as Ubuntu restricts them.
 
-The in-application updater of Podman Desktop is disabled on Linux: updates come from the package manager.
+The telemetry is disabled with the [managed configuration](https://podman-desktop.io/docs/configuration/managed-configuration)
+of the application: `/usr/share/podman-desktop-ext/default-settings.json` sets `telemetry.enabled` to `false` (and
+`telemetry.check`, so the welcome screen does not ask), and `/usr/share/podman-desktop-ext/locked.json` locks both
+settings. These are configuration files of the packages: administrators can add other managed settings to them.
+
+The in-application updater is disabled on Linux: updates come from the package manager.
 
 ## Building locally
 
 Requires `podman` and `make`.
 
 ```sh
-make app                                  # build the application from upstream.env
-make app PD_LOCAL_SRC=../podman-desktop   # or from a local checkout (its committed HEAD of PD_REF)
-make packages                             # RPMs (EL8, EL10) and the Debian package in out/
-make test                                 # install and start test of each package
+make app                                      # build the application archive from upstream.env
+make app PD_LOCAL_SRC=../podman-desktop-ext   # or from a local checkout (its committed PD_REF)
+make sources                                  # the source RPM and the Debian source packages in out/
+make test                                     # rebuild, install and start test of every target
+make test-noble                               # or of one: el8, el10, fedora-43, fedora-44, fedora-45, noble, resolute
 ```
 
 `PKG_MAINTAINER` ("Name <email>", default: your git identity) and `PKG_RELEASE` (default 1) can be set.
 Pre-release versions (`1.31.0-next`) are packaged as `1.31.0~next` with the build date and commit in the release,
 so that they sort before the final version.
 
-## Versions
+## Versions and releases
 
-The packaged builds of [wrouesnel/podman-desktop](https://github.com/wrouesnel/podman-desktop) are versioned one
-minor version above upstream main, with a `+wrouesnel.N` build metadata suffix (e.g. `1.32.0+wrouesnel.1` for
-upstream `1.31.0-next`): build metadata keeps the version valid for semver ranges, and rpm and dpkg sort it after the
-corresponding upstream versions. A release is made by:
+Podman Desktop Ext is versioned one minor version above upstream main, with a `+wrouesnel.N` build metadata suffix
+(e.g. `1.32.0+wrouesnel.3` for upstream `1.31.0-next`): build metadata keeps the version valid for semver ranges, and
+rpm and dpkg sort it after the corresponding upstream versions. The Debian packages are versioned
+`<version>-<release>~<series>1`. A release is made by:
 
-1. tagging the Podman Desktop sources with `v<version>` (in the fork),
+1. tagging the sources with `v<version>` in [wrouesnel/podman-desktop-ext](https://github.com/wrouesnel/podman-desktop-ext),
 2. setting `PD_REF` to this tag in `upstream.env`,
-3. tagging this repository with the same `v<version>`: the workflow builds, tests and publishes the packages.
+3. tagging this repository with the same `v<version>`.
 
-Changes of the packaging only (same sources) increase `PKG_RELEASE` instead.
+The [build workflow](.github/workflows/build.yml) builds the application and the source packages, and tests every
+target, on pull requests and on every push, so a broken package build fails the CI. For `v*` tags, it then signs
+and uploads the Debian source packages to the PPA, submits the source RPM to COPR, and creates the GitHub release
+with the application archive and its checksum (no OS packages are attached to releases). Packaging-only changes
+(same sources) increase `PKG_RELEASE` instead.
 
-## Package repositories
+### One-time setup
 
-`make repos REPO_BASE_URL=<url>` builds in `public/`:
-
-- `rpm/el8/x86_64`, `rpm/el10/x86_64`: dnf repositories, and `rpm/podman-desktop-el8.repo` / `-el10.repo`
-- `deb/`: an apt repository with the `noble` suite
-- `podman-desktop.asc`: the public signing key
-
-The packages and repository metadata are signed when `PACKAGE_SIGNING_KEY_FINGERPRINT` is set (the key must be in
-the keyring of `GNUPGHOME`, default `~/.gnupg`). The key is passphrase protected: the passphrase is taken from
-`PACKAGE_SIGNING_KEY_PASSPHRASE` when it is set (CI), otherwise from the login keyring with
-`secret-tool lookup service gpg-passphrase fingerprint <fingerprint>`. [`repo/gpg-sign`](repo/gpg-sign) gives it to
-gpg through a pipe (loopback pinentry), for the RPM signatures, the dnf `repomd.xml` and the apt `Release` files; it
-is never written to a file. For example:
-
-```sh
-make repos PACKAGE_SIGNING_KEY_FINGERPRINT=058AF445927A0D7FF792B85540FC2F5AA994033A REPO_BASE_URL=<url>
-```
-
-The published packages are signed with the key
-`058A F445 927A 0D7F F792  B855 40FC 2F5A A994 033A` (RSA 4096, expires 2029-09-30),
-available in [`keys/podman-desktop-packaging.asc`](keys/podman-desktop-packaging.asc) and on the published repository.
-
-The [build workflow](.github/workflows/build.yml) builds and tests all the packages (RPM el8 and el10, and deb) on
-pull requests and on every push, so a broken package build fails the CI. For `v*` tags, it also builds the signed
-repositories and creates the release (release notes only: the packages are published in the repositories, not as
-release assets); a manual run of the workflow builds and signs the repositories without releasing them. The
-[publish workflow](.github/workflows/pages.yml) deploys the repositories on GitHub Pages (the latest packages only).
-The deployment is a separate workflow, running on the default branch: GitHub deployments do not progress for refs
-containing `+`, like the `+wrouesnel` version tags. It needs:
-
-- the repository variable `PKG_MAINTAINER`
-- the secrets `PACKAGE_SIGNING_KEY` (armored private signing key, passphrase protected) and
-  `PACKAGE_SIGNING_KEY_PASSPHRASE`, and the variable `PACKAGE_SIGNING_KEY_FINGERPRINT`
-- GitHub Pages enabled with "GitHub Actions" as source (the `github-pages` environment allows the `main` branch)
-
-### Installing from the repositories
-
-The repositories are published on GitHub Pages at <https://blog.wrouesnel.com/podman-desktop-packaging/>
-(signing key: <https://blog.wrouesnel.com/podman-desktop-packaging/podman-desktop.asc>).
-
-RHEL 8 and compatible (dnf repository
-<https://blog.wrouesnel.com/podman-desktop-packaging/rpm/el8/x86_64/>):
-
-```sh
-sudo curl -fsSL -o /etc/yum.repos.d/podman-desktop.repo \
-  https://blog.wrouesnel.com/podman-desktop-packaging/rpm/podman-desktop-el8.repo
-sudo dnf install podman-desktop
-```
-
-RHEL 10 and compatible (dnf repository
-<https://blog.wrouesnel.com/podman-desktop-packaging/rpm/el10/x86_64/>):
-
-```sh
-sudo curl -fsSL -o /etc/yum.repos.d/podman-desktop.repo \
-  https://blog.wrouesnel.com/podman-desktop-packaging/rpm/podman-desktop-el10.repo
-sudo dnf install podman-desktop
-```
-
-Ubuntu 24.04 (apt repository <https://blog.wrouesnel.com/podman-desktop-packaging/deb/>, suite `noble`):
-
-```sh
-curl -fsSL https://blog.wrouesnel.com/podman-desktop-packaging/podman-desktop.asc \
-  | sudo gpg --dearmor -o /usr/share/keyrings/podman-desktop.gpg
-echo "deb [signed-by=/usr/share/keyrings/podman-desktop.gpg] https://blog.wrouesnel.com/podman-desktop-packaging/deb noble main" \
-  | sudo tee /etc/apt/sources.list.d/podman-desktop.list
-sudo apt update && sudo apt install podman-desktop
-```
-
-## Telemetry
-
-The packages disable the telemetry of Podman Desktop, with its
-[managed configuration](https://podman-desktop.io/docs/configuration/managed-configuration):
-`/usr/share/podman-desktop/default-settings.json` sets `telemetry.enabled` to `false` (and `telemetry.check`, so
-the welcome screen does not ask), and `/usr/share/podman-desktop/locked.json` locks both settings: the user settings
-cannot enable the telemetry. These files are configuration files of the packages, administrators can add other
-managed settings to them. The install tests check that the application loads them.
+- The PPA uploads are signed with the shared Launchpad key `2A12 8435 A6FE 8BD7 51AA  5787 2095 9AB8 0709 6ADB`
+  ("Will Rouesnel (GPG key for launchpad signing)", registered on the Launchpad account `~w-rouesnel`), in the
+  secrets `PACKAGE_SIGNING_KEY` (passphrase protected) and `PACKAGE_SIGNING_KEY_PASSPHRASE`, with the variable
+  `PACKAGE_SIGNING_KEY_FINGERPRINT`. COPR signs the RPMs with its own key.
+- The PPA `podman-desktop-ext` on Launchpad (amd64), and the COPR project `wrouesnel/podman-desktop-ext` with the
+  chroots `epel-8-x86_64`, `epel-10-x86_64`, `fedora-43-x86_64`, `fedora-44-x86_64` and `fedora-45-x86_64`.
+- The secret `COPR_CONFIG` (the COPR API configuration, `~/.config/copr` from
+  <https://copr.fedorainfracloud.org/api/>, valid 180 days), and the variable `PKG_MAINTAINER`. The variables `PPA`
+  and `COPR_PROJECT` can override the defaults.
 
 ## Notes
 
 - Upstream Podman Desktop only publishes Flathub / flatpak and tar.gz builds for Linux (Fedora packaging is
   discussed in [podman-desktop#14676](https://github.com/podman-desktop/podman-desktop/issues/14676)).
-- The packages use the Podman Desktop name and icons.
-- x86_64 only for now (arm64 would need an arm64 build of the application).
+- The packages use the Podman Desktop icons.
